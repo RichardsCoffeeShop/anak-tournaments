@@ -253,7 +253,7 @@ async def bulk_create_from_balancer(
         except ValueError:
             name = team_data.name
 
-        captain = await user_flows.find_by_battle_tag(session, team_data.name)
+        captain = await _get_or_create_user(session, team_data.name)
         team = await service.get_by_name_and_tournament(
             session, tournament.id, name, []
         )
@@ -276,7 +276,7 @@ async def bulk_create_from_balancer(
             logger.info(
                 f"Trying to add player {player.name} to team {team.name} in tournament {tournament.name}"
             )
-            user = await user_flows.find_by_battle_tag(session, player.name)
+            user = await _get_or_create_user(session, player.name)
             player_db = await service.get_player_by_user_and_tournament(
                 session, user.id, tournament.id, []
             )
@@ -326,7 +326,7 @@ async def bulk_create_from_simple(
 
     for team_name, members in teams_grouped.items():
         captain_entry = next((m for m in members if m.captain), members[0])
-        captain = await _get_or_create_placeholder_user(session, captain_entry.name)
+        captain = await _get_or_create_user(session, captain_entry.name)
 
         team = await service.get_by_name_and_tournament(
             session, tournament.id, team_name, []
@@ -351,7 +351,7 @@ async def bulk_create_from_simple(
             )
 
         for member in members:
-            user = await _get_or_create_placeholder_user(session, member.name)
+            user = await _get_or_create_user(session, member.name)
 
             player_db = await service.get_player_by_user_and_tournament(
                 session, user.id, tournament.id, []
@@ -401,9 +401,15 @@ def format_team_name(name: str, mapper: dict[str, str] | None) -> str:
     return new_name
 
 
-async def _get_or_create_placeholder_user(
+async def _get_or_create_user(
     session: AsyncSession, name: str
 ) -> models.User:
+    from src.services.user import service as user_svc
+
+    user = await user_svc.find_by_battle_tag(session, name, [])
+    if user:
+        return user
+
     query = sa.select(models.User).where(models.User.name == name)
     result = await session.execute(query)
     user = result.scalars().first()
@@ -413,7 +419,22 @@ async def _get_or_create_placeholder_user(
     user = models.User(name=name)
     session.add(user)
     await session.commit()
-    logger.info(f"Created placeholder user '{name}' for Challonge import")
+
+    bt_name = name
+    bt_tag = "0000"
+    if "#" in name:
+        bt_name, bt_tag = name.rsplit("#", 1)
+    bt_full = f"{bt_name}#{bt_tag}"
+
+    existing_bt = await user_svc.get_battle_tag(session, bt_full)
+    if not existing_bt:
+        bt = models.UserBattleTag(
+            user_id=user.id, battle_tag=bt_full, name=bt_name, tag=bt_tag
+        )
+        session.add(bt)
+        await session.commit()
+
+    logger.info(f"Auto-created user '{name}' (id={user.id})")
     return user
 
 
@@ -440,7 +461,7 @@ async def _create_from_challonge_participant(
         )
 
     if not team:
-        captain = await _get_or_create_placeholder_user(session, name)
+        captain = await _get_or_create_user(session, name)
         team = await service.create(
             session,
             name=name,
