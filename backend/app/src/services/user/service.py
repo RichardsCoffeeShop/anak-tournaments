@@ -311,6 +311,7 @@ async def get_roles(
             sa.and_(
                 models.Player.is_substitution.is_(False),
                 models.Player.user_id == user_id,
+                models.Player.role.isnot(None),
             )
         )
         .group_by(models.Player.role)

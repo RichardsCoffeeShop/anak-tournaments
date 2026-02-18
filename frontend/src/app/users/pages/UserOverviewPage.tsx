@@ -47,8 +47,11 @@ export const UserOverviewPageSkeleton = () => {
 };
 
 const UserOverviewPage = async ({ profile, tournamentId, user }: OverviewPageProps) => {
-  const tournament = await userService.getUserTournament(user.id, tournamentId);
-  const teammates = await userService.getUserBestTeammates(user.id);
+  const tournament = tournamentId ? await userService.getUserTournament(user.id, tournamentId) : null;
+  let teammates: { results: any[] } = { results: [] };
+  try {
+    teammates = await userService.getUserBestTeammates(user.id);
+  } catch { /* no teammates data */ }
 
   return (
     <div className="grid grid-cols-9 gap-8">

@@ -88,6 +88,9 @@ export default async function UserPage({
   if (!searchParams.tournamentId && profile.tournaments?.length > 0) {
     searchParamsObj.set("tournamentId", profile.tournaments[0].id.toString());
     searchParamsChanged = true;
+  } else if (!searchParams.tournamentId) {
+    searchParamsObj.set("tournamentId", "0");
+    searchParamsChanged = true;
   }
 
   if (!searchParams.page) {

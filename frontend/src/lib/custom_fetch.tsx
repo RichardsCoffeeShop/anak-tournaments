@@ -76,12 +76,11 @@ export async function customFetch(url: string, options?: CustomOptions): Promise
     let msg = `API error ${response.status} on ${urlWithParams}`;
     try {
       const body = await response.json();
+      const detail = body.detail;
       if (body.message) {
         msg += `: ${body.message}`;
-      } else if (body.detail?.[0]?.msg) {
-        msg += `: ${body.detail[0].msg}`;
-      } else if (body.detail) {
-        msg += `: ${typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail)}`;
+      } else if (detail) {
+        msg += `: ${typeof detail === "string" ? detail : JSON.stringify(detail)}`;
       }
     } catch { /* ignore parse errors */ }
     console.error(msg);
