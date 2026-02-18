@@ -576,8 +576,11 @@ class MatchLogProcessor:
             enums.LogEventType.Kill
         ).items():
             for row in rows:
-                if row[2][1] not in players:
-                    logger.warning(f"Player {row[2][1]} not found in players")
+                if row[2][1] not in players or row[2][4] not in players:
+                    if row[2][1] not in players:
+                        logger.warning(f"Killer '{row[2][1]}' not found in players, skipping kill")
+                    if row[2][4] not in players:
+                        logger.warning(f"Victim '{row[2][4]}' not found in players, skipping kill")
                     continue
                 killer = players[row[2][1]]
                 killer_hero = await self.get_hero(session, row[2][2])
@@ -988,6 +991,14 @@ class MatchLogProcessor:
             team_name = row[2][1]
             player_name = row[2][2]
             player_teams.setdefault(player_name, team_name)
+        for match_round, rows in self.get_grouped_rows_by_event(
+            enums.LogEventType.Kill
+        ).items():
+            for row in rows:
+                killer_team = row[2][0].removeprefix("Team ")
+                victim_team = row[2][3].removeprefix("Team ")
+                player_teams.setdefault(row[2][1], killer_team)
+                player_teams.setdefault(row[2][4], victim_team)
         return player_teams
 
     async def _ensure_all_players_in_dict(
