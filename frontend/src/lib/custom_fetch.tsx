@@ -70,7 +70,7 @@ export async function customFetch(url: string, options?: CustomOptions): Promise
     try {
       const error = await response.json();
       msg = error.message || error.detail?.[0]?.msg || JSON.stringify(error.detail) || msg;
-    } catch {}
+    } catch { /* ignore parse errors */ }
     throw new Error(msg);
   }
 
