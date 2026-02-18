@@ -896,6 +896,9 @@ class MatchLogProcessor:
         max_round: int = 0
         for row in self.get_rows_by_event(enums.LogEventType.PlayerStat):
             player_name = row[2][2]
+            if player_name not in players:
+                logger.warning(f"Player '{player_name}' not found in players dict, skipping stats")
+                continue
             cache.setdefault(player_name, {})
             cache_round.setdefault(player_name, {})
             hero = await self.get_hero(session, row[2][3])
@@ -978,6 +981,82 @@ class MatchLogProcessor:
 
         await session.commit()
 
+    def _collect_all_player_names(self) -> dict[str, str]:
+        """Collect all player names referenced in stat and kill events, mapped to their team."""
+        player_teams: dict[str, str] = {}
+        for row in self.get_rows_by_event(enums.LogEventType.PlayerStat):
+            team_name = row[2][1]
+            player_name = row[2][2]
+            player_teams.setdefault(player_name, team_name)
+        return player_teams
+
+    async def _ensure_all_players_in_dict(
+        self,
+        session: AsyncSession,
+        players: dict[str, models.Player],
+        team_map: dict[str, models.Team],
+    ) -> None:
+        """Ensure all players referenced in log events exist in the players dict."""
+        all_player_names = self._collect_all_player_names()
+        for player_name, team_name in all_player_names.items():
+            if player_name in players:
+                continue
+
+            team = team_map.get(team_name)
+            if not team:
+                logger.warning(f"No team found for player '{player_name}' (team '{team_name}'), skipping")
+                continue
+
+            user = await service.get_user_by_battle_name(session, player_name, True)
+            if not user:
+                user = await service.get_user_by_battle_name(session, player_name, False)
+            if not user:
+                db_user = models.User(name=player_name)
+                session.add(db_user)
+                await session.flush()
+                bt_name = player_name
+                bt_tag = "0000"
+                if "#" in player_name:
+                    bt_name, bt_tag = player_name.rsplit("#", 1)
+                bt = models.UserBattleTag(
+                    user_id=db_user.id,
+                    battle_tag=f"{bt_name}#{bt_tag}",
+                    name=bt_name,
+                    tag=bt_tag,
+                )
+                session.add(bt)
+                await session.flush()
+                user = db_user
+                logger.info(f"Auto-created user '{player_name}' (id={user.id}) for stats")
+
+            existing_player = await team_service.get_player_by_team_and_user(
+                session, team.id, user.id, []
+            )
+            if existing_player:
+                players[player_name] = existing_player
+                continue
+
+            player = models.Player(
+                name=user.name,
+                primary=False,
+                secondary=False,
+                rank=0,
+                div=0,
+                role=None,
+                user_id=user.id,
+                tournament_id=self.tournament.id,
+                team_id=team.id,
+                is_substitution=False,
+                is_newcomer=True,
+                is_newcomer_role=True,
+            )
+            session.add(player)
+            await session.flush()
+            players[player_name] = player
+            logger.info(f"Auto-created player '{player_name}' (id={player.id}) in team '{team.name}'")
+
+        await session.commit()
+
     async def start(
         self, session: AsyncSession, is_raise: bool = True
     ) -> models.Match | None:
@@ -992,6 +1071,13 @@ class MatchLogProcessor:
         for team in [home_team, away_team]:
             for name, player in team[1].items():
                 players[name] = player
+
+        home_team_name, away_team_name = self.get_team_names()
+        team_name_map: dict[str, models.Team] = {
+            home_team_name: home_team[0],
+            away_team_name: away_team[0],
+        }
+        await self._ensure_all_players_in_dict(session, players, team_name_map)
 
         match_map = await self.get_map(session)
         logger.info(
