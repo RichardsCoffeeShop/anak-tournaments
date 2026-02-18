@@ -5,7 +5,10 @@ interface CustomOptions {
   method?: string;
 }
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const isServer = typeof window === "undefined";
+export const API_URL = isServer
+  ? process.env.NEXT_API_URL || process.env.NEXT_PUBLIC_API_URL
+  : process.env.NEXT_PUBLIC_API_URL;
 export const cachePolicy = process.env.NEXT_PUBLIC_CACHE_POLICY;
 
 export const getCachePolicy = () => {
