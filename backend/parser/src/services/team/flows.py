@@ -325,6 +325,22 @@ def format_team_name(name: str, mapper: dict[str, str] | None) -> str:
     return new_name
 
 
+async def _get_or_create_placeholder_user(
+    session: AsyncSession, name: str
+) -> models.User:
+    query = sa.select(models.User).where(models.User.name == name)
+    result = await session.execute(query)
+    user = result.scalars().first()
+    if user:
+        return user
+
+    user = models.User(name=name)
+    session.add(user)
+    await session.commit()
+    logger.info(f"Created placeholder user '{name}' for Challonge import")
+    return user
+
+
 async def _create_from_challonge_participant(
     session: AsyncSession,
     tournament: models.Tournament,
@@ -342,8 +358,25 @@ async def _create_from_challonge_participant(
 
     team = await service.get_by_name_and_tournament(session, tournament.id, name, [])
     if not team:
-        name = format_team_name(participant.name, None)
-        team = await get_by_name_and_tournament(session, tournament.id, name, [])
+        raw_name = format_team_name(participant.name, None)
+        team = await service.get_by_name_and_tournament(
+            session, tournament.id, raw_name, []
+        )
+
+    if not team:
+        captain = await _get_or_create_placeholder_user(session, name)
+        team = await service.create(
+            session,
+            name=name,
+            balancer_name=participant.name,
+            avg_sr=0,
+            total_sr=0,
+            tournament=tournament,
+            captain=captain,
+        )
+        logger.info(
+            f"Auto-created team '{name}' for tournament '{tournament.name}' from Challonge"
+        )
 
     query = sa.select(models.ChallongeTeam).where(
         sa.and_(
