@@ -22,7 +22,7 @@ services:
       - traefik-public
 
   traefik:
-    image: traefik:3.3
+    image: traefik:3.6
     container_name: aqt-traefik
     restart: unless-stopped
     ports:

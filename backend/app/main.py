@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from cashews import cache
 from cashews.contrib.fastapi import (
     CacheDeleteMiddleware,
-    CacheEtagMiddleware,
     CacheRequestControlMiddleware,
 )
 from fastapi import FastAPI
@@ -45,7 +44,6 @@ app = FastAPI(
 )
 app.include_router(api.router)
 app.add_middleware(CacheDeleteMiddleware)
-app.add_middleware(CacheEtagMiddleware)
 app.add_middleware(CacheRequestControlMiddleware)
 app.add_middleware(
     CORSMiddleware,
