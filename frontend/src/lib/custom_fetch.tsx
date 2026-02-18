@@ -66,10 +66,16 @@ export async function customFetch(url: string, options?: CustomOptions): Promise
   });
 
   if (!response.ok) {
-    let msg = `API error ${response.status}`;
+    let msg = `API error ${response.status}: ${response.statusText}`;
     try {
-      const error = await response.json();
-      msg = error.message || error.detail?.[0]?.msg || JSON.stringify(error.detail) || msg;
+      const body = await response.json();
+      if (body.message) {
+        msg = body.message;
+      } else if (body.detail?.[0]?.msg) {
+        msg = body.detail[0].msg;
+      } else if (body.detail) {
+        msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+      }
     } catch { /* ignore parse errors */ }
     throw new Error(msg);
   }
