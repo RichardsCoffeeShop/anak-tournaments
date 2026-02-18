@@ -66,8 +66,12 @@ export async function customFetch(url: string, options?: CustomOptions): Promise
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "An error occurred");
+    let msg = `API error ${response.status}`;
+    try {
+      const error = await response.json();
+      msg = error.message || error.detail?.[0]?.msg || JSON.stringify(error.detail) || msg;
+    } catch {}
+    throw new Error(msg);
   }
 
   return response;

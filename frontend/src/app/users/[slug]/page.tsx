@@ -67,13 +67,25 @@ export default async function UserPage({
     searchParamsObj.set("tab", activeTab);
     searchParamsChanged = true;
   }
-  const user = await userService.getUserByName(params.slug);
+  let user;
+  try {
+    user = await userService.getUserByName(params.slug);
+  } catch (e) {
+    console.error("Failed to fetch user:", e);
+    redirect("/users");
+  }
   if (!user?.id) {
     redirect("/users");
   }
-  const profile = await userService.getUserProfile(user.id);
+  let profile;
+  try {
+    profile = await userService.getUserProfile(user.id);
+  } catch (e) {
+    console.error("Failed to fetch profile:", e);
+    profile = { tournaments: [], tournaments_count: 0, tournaments_won: 0, maps_total: 0, maps_won: 0, avg_placement: 0, avg_playoff_placement: 0, avg_group_placement: 0, avg_closeness: 0, roles: [], hero_statistics: [], most_played_hero: null } as any;
+  }
 
-  if (!searchParams.tournamentId && profile.tournaments.length > 0) {
+  if (!searchParams.tournamentId && profile.tournaments?.length > 0) {
     searchParamsObj.set("tournamentId", profile.tournaments[0].id.toString());
     searchParamsChanged = true;
   }
