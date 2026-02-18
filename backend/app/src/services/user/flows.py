@@ -256,6 +256,10 @@ async def get_profile(session: AsyncSession, id: int) -> schemas.UserProfile:
         if team.tournament.is_league:
             continue
 
+        if not team.standings:
+            tournaments_count += 1
+            continue
+
         placements.append(team.standings[0].overall_position)
         tournaments_count += 1
         if team.standings[0].overall_position == 1:
