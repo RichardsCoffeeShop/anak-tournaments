@@ -29,6 +29,19 @@ async def bulk_create_from_balancer(
     return await flows.bulk_create_from_balancer(session, tournament_id, teams)
 
 
+@router.post(path="/create/simple")
+async def bulk_create_from_simple(
+    tournament_id: int,
+    data: UploadFile,
+    session=Depends(db.get_async_session),
+):
+    text = await data.read()
+    payload = orjson.loads(text)
+    players = [schemas.SimpleTeamPlayer.model_validate(entry) for entry in payload]
+    await flows.bulk_create_from_simple(session, tournament_id, players)
+    return {"message": "Teams and players created successfully"}
+
+
 @router.post(path="/create/challonge")
 async def create_from_challonge(
     tournament_id: int,

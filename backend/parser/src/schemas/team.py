@@ -9,6 +9,7 @@ from src.schemas.user import UserRead
 __all__ = (
     "BalancerTeamMember",
     "BalancerTeam",
+    "SimpleTeamPlayer",
     "TeamRead",
     "PlayerRead",
     "DashaTeamMember",
@@ -51,6 +52,15 @@ class BalancerTeam(BaseModel):
     name: str
     total_sr: int = Field(alias="totalSr")
     members: list[BalancerTeamMember]
+
+
+class SimpleTeamPlayer(BaseModel):
+    team: str = Field(alias="Team")
+    role: typing.Literal["tank", "dps", "support"] = Field(alias="Role")
+    rank: int = Field(alias="Rank")
+    name: str = Field(alias="Name")
+    captain: int = Field(alias="Captain")
+    squire: int = Field(alias="Squire")
 
 
 class PlayerRead(BaseRead):

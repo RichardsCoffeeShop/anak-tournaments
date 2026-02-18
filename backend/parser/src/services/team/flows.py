@@ -315,6 +315,82 @@ async def bulk_create_from_balancer(
     return None
 
 
+async def bulk_create_from_simple(
+    session: AsyncSession, tournament_id: int, payload: list[schemas.SimpleTeamPlayer]
+) -> None:
+    tournament = await tournament_flows.get(session, tournament_id, [])
+
+    teams_grouped: dict[str, list[schemas.SimpleTeamPlayer]] = {}
+    for entry in payload:
+        teams_grouped.setdefault(entry.team, []).append(entry)
+
+    for team_name, members in teams_grouped.items():
+        captain_entry = next((m for m in members if m.captain), members[0])
+        captain = await _get_or_create_placeholder_user(session, captain_entry.name)
+
+        team = await service.get_by_name_and_tournament(
+            session, tournament.id, team_name, []
+        )
+        avg_sr = sum(m.rank for m in members) / len(members) if members else 0
+        total_sr = sum(m.rank for m in members)
+
+        if not team:
+            team = await create(
+                session,
+                name=team_name,
+                balancer_name=team_name,
+                avg_sr=avg_sr,
+                total_sr=total_sr,
+                tournament=tournament,
+                captain=captain,
+            )
+            logger.info(f"Created team '{team_name}' in tournament {tournament.name}")
+        else:
+            logger.info(
+                f"Team {team_name} already exists in tournament {tournament.name}. Skipping team creation..."
+            )
+
+        for member in members:
+            user = await _get_or_create_placeholder_user(session, member.name)
+
+            player_db = await service.get_player_by_user_and_tournament(
+                session, user.id, tournament.id, []
+            )
+            if player_db:
+                logger.info(
+                    f"Player {member.name} already exists in tournament {tournament.name}. Skipping..."
+                )
+                continue
+
+            role = resolve_hero_role_from_balancer(member.role)
+            is_newcomer = not bool(
+                await service.get_player_by_user(session, user.id, [])
+            )
+            is_newcomer_role = not bool(
+                await service.get_player_by_user_and_role(session, user.id, role, [])
+            )
+
+            await create_player(
+                session,
+                name=member.name,
+                primary=False,
+                secondary=False,
+                rank=member.rank,
+                role=role,
+                div=resolve_player_div(member.rank),
+                user=user,
+                tournament=tournament,
+                team=team,
+                is_newcomer=is_newcomer,
+                is_newcomer_role=is_newcomer_role,
+            )
+            logger.info(
+                f"Player {member.name} added to team {team.name} in tournament {tournament.id}"
+            )
+
+    return None
+
+
 def format_team_name(name: str, mapper: dict[str, str] | None) -> str:
     new_name = name.split("#")[0]
     if mapper:
