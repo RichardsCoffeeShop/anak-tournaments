@@ -4,7 +4,7 @@ from loguru import logger
 
 from src.core import config, db, enums
 from src.services.auth import flows as auth_flows
-from src.services.s3 import service as s3_service
+from src.services.storage import service as storage_service
 from src.services.tournament import flows as tournaments_flows
 from src.services.tournament import service as tournaments_service
 
@@ -55,7 +55,7 @@ async def get_tournament_logs(
     tournament_id: int, session=Depends(db.get_async_session)
 ):
     tournament = await tournaments_flows.get(session, tournament_id, [])
-    logs = await s3_service.async_client.get_logs_by_tournament(tournament.id)
+    logs = await storage_service.async_client.get_logs_by_tournament(tournament.id)
     return {"tournament": tournament.name, "logs": logs}
 
 
@@ -94,7 +94,7 @@ async def process_tournament_log(tournament_id: int):
     async with db.async_session_maker() as session:
         tournament = await tournaments_flows.get(session, tournament_id, [])
 
-    for log in await s3_service.async_client.get_logs_by_tournament(tournament.id):
+    for log in await storage_service.async_client.get_logs_by_tournament(tournament.id):
         await flows.process_match_log(session, tournament.id, log, is_raise=False)
 
     logger.info(f"All logs for tournament {tournament.name} are queued for processing.")

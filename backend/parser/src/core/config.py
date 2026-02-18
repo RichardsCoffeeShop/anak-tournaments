@@ -44,10 +44,7 @@ class AppConfig(BaseSettings):
     challonge_username: str
     challonge_api_key: str
 
-    s3_access_key: str
-    s3_secret_key: str
-    s3_endpoint_url: str
-    s3_bucket_name: str
+    logs_path: str = "/data/logs"
 
     proxy_ip: str | None = None
     proxy_port: int | None = None

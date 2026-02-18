@@ -10,7 +10,7 @@ from src.services.encounter import flows as encounter_flows
 from src.services.encounter import service as encounter_service
 from src.services.hero import service as hero_service
 from src.services.map import flows as map_flows
-from src.services.s3 import service as s3_service
+from src.services.storage import service as storage_service
 from src.services.team import service as team_service
 from src.services.tournament import flows as tournament_flows
 from src.services.tournament import flows as tournaments_flows
@@ -1029,10 +1029,10 @@ async def process_match_log(
 ) -> None:
     tournament = await tournaments_flows.get(session, tournament_id, [])
     logger.info(
-        f"Fetching logs from S3 for tournament {tournament.id} and file {filename}"
+        f"Fetching log for tournament {tournament.id}, file {filename}"
     )
 
-    data = await s3_service.async_client.get_log_by_filename(tournament.id, filename)
+    data = await storage_service.async_client.get_log_by_filename(tournament.id, filename)
     decoded_lines = [line.decode() for line in data.split(b"\n") if line]
 
     processor = MatchLogProcessor(tournament, filename.split("/")[-1], decoded_lines)
