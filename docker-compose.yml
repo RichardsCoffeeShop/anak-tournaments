@@ -48,7 +48,7 @@ services:
       context: ./backend
       args:
         APP_PATH: app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --loop uvloop
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --loop uvloop"
     restart: unless-stopped
     environment:
       - ENVIRONMENT=${ENVIRONMENT}
