@@ -518,6 +518,39 @@ class MatchLogProcessor:
         )
         return players_out
 
+    async def _resolve_team_players(
+        self,
+        session: AsyncSession,
+        team_data: tuple[models.Team, list[tuple[str, models.User | None]]],
+    ) -> tuple[models.Team, dict[str, models.Player]]:
+        team, raw_players = team_data
+
+        if not team.players:
+            logger.info(f"Team '{team.name}' has no players, auto-creating from log")
+            players_map = await self._ensure_players_for_team(
+                session, team, raw_players
+            )
+            return (team, players_map)
+
+        resolved = await self.get_players_by_team_and_battle_name(
+            session, team, raw_players
+        )
+        matched = [p for p in resolved if p[1] is not None]
+
+        if not matched:
+            logger.warning(
+                f"Team '{team.name}' has {len(team.players)} DB players but none matched log names, "
+                f"falling back to auto-create"
+            )
+            players_map = await self._ensure_players_for_team(
+                session, team, raw_players
+            )
+            return (team, players_map)
+
+        return await self.fix_team_players_collision(
+            session, team, matched, raw_players
+        )
+
     async def process_teams(
         self, session: AsyncSession
     ) -> tuple[
@@ -525,44 +558,8 @@ class MatchLogProcessor:
         tuple[models.Team, dict[str, models.Player]],
     ]:
         home_team, away_team = await self.find_teams_by_players(session)
-
-        home_has_players = bool(home_team[0].players)
-        away_has_players = bool(away_team[0].players)
-
-        if not home_has_players:
-            logger.info(f"Team '{home_team[0].name}' has no players, auto-creating from log")
-            home_players_map = await self._ensure_players_for_team(
-                session, home_team[0], home_team[1]
-            )
-            home_team_out = (home_team[0], home_players_map)
-        else:
-            home_players = await self.get_players_by_team_and_battle_name(
-                session, home_team[0], home_team[1]
-            )
-            home_team_out = await self.fix_team_players_collision(
-                session,
-                home_team[0],
-                [p for p in home_players if p[1] is not None],
-                home_team[1],
-            )
-
-        if not away_has_players:
-            logger.info(f"Team '{away_team[0].name}' has no players, auto-creating from log")
-            away_players_map = await self._ensure_players_for_team(
-                session, away_team[0], away_team[1]
-            )
-            away_team_out = (away_team[0], away_players_map)
-        else:
-            away_players = await self.get_players_by_team_and_battle_name(
-                session, away_team[0], away_team[1]
-            )
-            away_team_out = await self.fix_team_players_collision(
-                session,
-                away_team[0],
-                [p for p in away_players if p[1] is not None],
-                away_team[1],
-            )
-
+        home_team_out = await self._resolve_team_players(session, home_team)
+        away_team_out = await self._resolve_team_players(session, away_team)
         return home_team_out, away_team_out
 
     async def process_kills(
