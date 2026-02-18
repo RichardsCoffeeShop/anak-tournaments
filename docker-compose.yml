@@ -108,6 +108,8 @@ services:
       - traefik.enable=true
       - traefik.http.routers.parser-api-http.rule=PathPrefix(`/parser`)
       - traefik.http.routers.parser-api-http.entrypoints=http
+      - traefik.http.routers.parser-api-http.middlewares=parser-strip
+      - traefik.http.middlewares.parser-strip.stripprefix.prefixes=/parser
       - traefik.http.services.parser-api-http.loadbalancer.server.port=8081
     volumes:
       - ./logs/parser:/logs
