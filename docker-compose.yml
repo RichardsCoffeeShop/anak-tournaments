@@ -9,6 +9,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql:ro
     networks:
       - traefik-public
 
