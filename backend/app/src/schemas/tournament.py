@@ -35,8 +35,8 @@ class TournamentRead(BaseRead):
     challonge_slug: str | None
     is_league: bool
     is_finished: bool
-    start_date: datetime
-    end_date: datetime
+    start_date: datetime | None = None
+    end_date: datetime | None = None
 
     groups: list[TournamentGroupRead]
     participants_count: int | None
