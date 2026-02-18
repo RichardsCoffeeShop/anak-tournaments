@@ -24,6 +24,10 @@ export async function generateMetadata(props: {
   const params = await props.params;
   const user = await userService.getUserByName(params.slug);
 
+  if (!user?.id) {
+    return { title: "User not found | AQT" };
+  }
+
   return {
     title: `${user.name} Overview | AQT`,
     description: `Overview for ${user.name} on AQT.`,
@@ -64,6 +68,9 @@ export default async function UserPage({
     searchParamsChanged = true;
   }
   const user = await userService.getUserByName(params.slug);
+  if (!user?.id) {
+    redirect("/users");
+  }
   const profile = await userService.getUserProfile(user.id);
 
   if (!searchParams.tournamentId && profile.tournaments.length > 0) {

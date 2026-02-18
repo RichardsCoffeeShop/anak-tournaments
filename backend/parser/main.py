@@ -1,15 +1,19 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from src import api
-from src.core import config
+from src.core import config, db
 from src.core.logging import logger
 from src.middlewares.exception import ExceptionMiddleware
 from src.middlewares.time import TimeMiddleware
+from src.services.auth import flows as auth_flows
+from src.services.gamemode import flows as gamemode_flows
+from src.services.hero import flows as hero_flows
+from src.services.map import flows as map_flows
 from starlette.requests import Request
 
 
@@ -45,6 +49,14 @@ app.add_middleware(
 )
 
 app.include_router(api.router)
+
+
+@app.post("/seed", dependencies=[Depends(auth_flows.current_user)])
+async def seed_database(session=Depends(db.get_async_session)):
+    await gamemode_flows.initial_create(session)
+    await hero_flows.initial_create(session)
+    await map_flows.initial_create(session)
+    return {"message": "Database seeded with gamemodes, heroes, and maps"}
 
 
 @app.exception_handler(RequestValidationError)
